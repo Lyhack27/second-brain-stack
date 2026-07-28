@@ -1,8 +1,8 @@
 # Second Brain — Obsidian + localAI, self-hosted
 
-A small, self-hosted stack that gives you **one Obsidian vault, synced to
-every device, with an API your agents/scripts can write into** — no
-third-party cloud in the loop.
+A small, self-hosted stack built around two things: **your notes synced
+to every device in near-real-time**, and **an API your agents/scripts
+can write into** — no third-party cloud in the loop.
 
 Built for the talk *"Build a Second Brain w/ Obsidian & localAI"*
 (Inspire9, Melbourne). Slides are in [`slides/`](slides/index.html).
@@ -10,25 +10,27 @@ Built for the talk *"Build a Second Brain w/ Obsidian & localAI"*
 ## What's in the box
 
 ```
-couchdb  →  always on. Sync hub for the "Self-hosted LiveSync" plugin.
+couchdb  →  always on. Sync hub for the "Self-hosted LiveSync" plugin —
+            this is the whole point of the stack.
 hook     →  always on. Tiny webhook: agents POST a report, it lands in
-            the vault as a note — no filesystem access needed.
-obsidian →  OFF by default. Full desktop Obsidian streamed to a browser
-            (KasmVNC), for graph view / plugin setup / one-off editing.
+            the vault as a note, synced instantly. This is how your
+            agents get a second brain too.
+obsidian →  optional, off by default. Full desktop Obsidian streamed to
+            a browser, for the odd time you want graph view or plugin
+            setup from a machine that isn't yours.
 ```
 
 ```
-📱 Phone ──┐                              ┌── 🤖 Your agent / script
-💻 Laptop ─┼──► CouchDB ◄──► Vault ◄───────┤
-           │   (LiveSync)                 └── Webhook (POST /report)
-           └── Obsidian in the browser (on-demand only)
+📱 Phone ──┐
+💻 Laptop ─┼──►  CouchDB  ◄──►  Vault  ◄──  Webhook (POST /report)  ◄── 🤖 Your agent / script
+           │   (LiveSync)
 ```
 
 Notes are plain Markdown files. There's no proprietary format and no
 lock-in — if you ever want to walk away from this stack, your vault is
 just a folder.
 
-## Quick start
+## Quick start — sync
 
 ```bash
 git clone <this-repo>
@@ -51,26 +53,11 @@ Then, on each device:
 That's it — notes now sync in near-real-time between every device, with
 CouchDB as the only server-side moving part.
 
-## Turning the browser UI on/off
-
-`obsidian` is a full desktop Obsidian running inside a container,
-streamed to your browser — useful for graph view, community plugin
-setup, or editing from a machine that isn't yours. It's `restart: "no"`
-on purpose: leave it off unless you're using it.
-
-```bash
-docker compose up -d obsidian    # turn on
-docker compose stop obsidian     # turn off — sync never notices, it
-                                  # doesn't touch couchdb or hook
-```
-
-It costs ~1GB RAM *only while running*. Log in at `http://<your-server>:3000`
-with `WEB_USER` / `WEB_PASSWORD` from `.env`.
-
 ## Writing into the vault from agents/scripts
 
-The `hook` service lets anything that can `curl` add a note, without
-touching the filesystem or waiting for the Obsidian UI:
+This is the other half of the stack: the `hook` service lets anything
+that can `curl` add a note, without touching the filesystem or waiting
+on any UI:
 
 ```bash
 curl -X POST http://<your-server>:8080/report \
@@ -81,9 +68,9 @@ curl -X POST http://<your-server>:8080/report \
 
 This appends to `Team/<agent>/<today>.md`, writing a proper
 LiveSync-format document straight into CouchDB — every device gets it
-instantly, even with the browser UI off. Point a cron job, a CI step, or
-an AI agent at this and you have automated reports living in your
-second brain.
+instantly. Point a cron job, a CI step, or an AI agent at this and you
+have automated reports living in your second brain, right next to your
+own notes.
 
 ## Linking notes into a real graph
 
@@ -93,10 +80,25 @@ add a `[[Link]]` to a hub note for that topic (`[[Marketing]]`,
 `[[Project X]]`, whatever), and list the note back on the hub. A few
 minutes of `[[linking]]` turns a pile of files into a second brain.
 
-Obsidian's Graph view has a **"Orphans" toggle** in its filter panel —
+Obsidian's Graph view has an **"Orphans" toggle** in its filter panel —
 turn it off to hide every note with zero connections and see just the
 notes that are actually linked. Handy for a live demo, or just to spot
 notes worth connecting.
+
+## Optional: browser access
+
+`obsidian` runs a full desktop Obsidian inside a container, streamed to
+your browser (KasmVNC) — useful once in a while for graph view, plugin
+setup, or editing from a machine that isn't yours. It's `restart: "no"`
+on purpose: sync and the webhook don't need it running at all.
+
+```bash
+docker compose up -d obsidian    # turn on
+docker compose stop obsidian     # turn off — sync never notices
+```
+
+Costs ~1GB RAM *only while running*. Log in at `http://<your-server>:3000`
+with `WEB_USER` / `WEB_PASSWORD` from `.env`.
 
 ## Gotchas we hit, so you don't have to
 
@@ -111,11 +113,11 @@ notes worth connecting.
   CouchDB directly for a note in a subfolder, encode the `/` in the doc
   ID as `%2F` — a literal slash gets parsed as a URL path separator, not
   part of the ID, and you'll get false "not found" errors.
-- **Filesystem writes need the Obsidian UI running.** Only the `hook`
-  service writes straight to CouchDB (instant sync, UI can be off). If
-  you ever drop a file directly onto the vault folder on disk, LiveSync
-  only picks it up once `obsidian` is running to notice the change and
-  push it — it won't reach other devices until then.
+- **The webhook is the reliable path for automation.** It writes straight
+  to CouchDB, so sync is instant regardless of anything else running. A
+  file dropped directly onto the vault folder on disk, by contrast, only
+  syncs once the `obsidian` container happens to be running to notice
+  it — another reason agents should use the webhook, not the filesystem.
 - **Stale reverse-proxy configs haunt you.** If you experiment with
   domains/routing, clean up unused Traefik/Caddy config — a forgotten
   rule claiming your domain shows up as random 502s weeks later.

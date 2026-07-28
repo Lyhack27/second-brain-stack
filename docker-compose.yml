@@ -1,10 +1,14 @@
-# Second Brain stack: one Obsidian vault, synced to every device, with an
-# API agents can write into.
+# Second Brain stack, built around the two things that actually matter:
+# your notes synced to every device, and an API your agents can write into.
 #
-# - couchdb: always on — sync hub for the Self-hosted LiveSync plugin (native apps)
-# - hook:    always on — tiny webhook so agents/scripts can write notes directly
-# - obsidian: OFF by default — full desktop Obsidian streamed to a browser,
-#             turn it on only when you need graph view / plugin config in-browser
+# - couchdb: always on — sync hub for the Self-hosted LiveSync plugin. This
+#            is the core of the stack.
+# - hook:    always on — tiny webhook so agents/scripts can write notes
+#            directly, synced instantly. This is how agents get a brain too.
+# - obsidian: optional, off by default — full desktop Obsidian streamed to a
+#             browser, only for the odd time you want graph view or plugin
+#             config from a machine that isn't yours. Sync and the webhook
+#             never need this running.
 #
 # Quick start:
 #   cp .env.example .env   # edit the values
@@ -12,7 +16,7 @@
 #   # install "Self-hosted LiveSync" in Obsidian on your devices, point it at
 #   # http://<this-host>:5984 (or your domain, see the Traefik section below)
 #
-# Turn the browser UI on/off on demand:
+# Occasional browser access:
 #   docker compose up -d obsidian
 #   docker compose stop obsidian
 
