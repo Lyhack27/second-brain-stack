@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Second Brain — self-hosted Obsidian + localAI</title>
+<style>
+  :root {
+    --bg: #0e1116;
+    --bg-accent: #151a22;
+    --fg: #e8ecf1;
+    --muted: #9aa7b5;
+    --accent: #7c6cf0;
+    --accent-2: #4ecdc4;
+    --code-bg: #1b212b;
+    --maxw: 880px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg); color: var(--fg);
+    font-family: "Avenir Next", "Segoe UI", system-ui, -apple-system, sans-serif;
+    line-height: 1.55;
+  }
+  a { color: var(--accent-2); }
+  code, pre { font-family: "JetBrains Mono", "Fira Code", ui-monospace, monospace; }
+  code {
+    background: var(--code-bg); border-radius: .3em; padding: .15em .4em;
+    font-size: .92em; color: var(--accent-2);
+  }
+  pre {
+    background: var(--code-bg); border: 1px solid #262e3a; border-radius: 10px;
+    padding: 20px 22px; overflow-x: auto; margin: 18px 0;
+  }
+  pre code { background: none; padding: 0; font-size: 15px; line-height: 1.6; color: #cdd6e0; }
+  pre code .c { color: #5c6a7a; } pre code .g { color: var(--accent-2); } pre code .y { color: #e5c07b; }
+
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+
+  header.hero {
+    padding: 14vh 0 8vh;
+    background:
+      radial-gradient(ellipse at 80% 0%, #1d1747 0%, transparent 55%),
+      radial-gradient(ellipse at 5% 100%, #0d3330 0%, transparent 50%), var(--bg);
+    border-bottom: 1px solid #1c222c;
+  }
+  .kicker { color: var(--accent-2); text-transform: uppercase; letter-spacing: .2em;
+    font-size: 13px; font-weight: 600; margin-bottom: 18px; }
+  h1 { font-size: clamp(32px, 5.5vw, 54px); line-height: 1.1; letter-spacing: -.01em; }
+  h1 .hl { color: var(--accent); }
+  .byline { margin-top: 26px; font-size: 17px; color: var(--muted); }
+  .byline strong { color: var(--fg); }
+  .hero-links { margin-top: 30px; display: flex; gap: 14px; flex-wrap: wrap; }
+  .btn {
+    display: inline-block; padding: 11px 20px; border-radius: 8px; font-size: 15px;
+    text-decoration: none; font-weight: 600; border: 1px solid #2a3340;
+  }
+  .btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn.ghost { color: var(--fg); }
+
+  section { padding: 7vh 0; border-bottom: 1px solid #1c222c; }
+  section:last-of-type { border-bottom: none; }
+  h2 { font-size: clamp(24px, 3.4vw, 32px); margin-bottom: 8px; letter-spacing: -.01em; }
+  h2 .hl { color: var(--accent); }
+  .lede { color: var(--muted); font-size: 17px; max-width: 62ch; margin-bottom: 40px; }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; }
+  .card {
+    background: var(--bg-accent); border: 1px solid #262e3a; border-radius: 12px;
+    padding: 22px 22px 24px;
+  }
+  .card .icon { font-size: 26px; margin-bottom: 10px; }
+  .card h3 { font-size: 17px; margin-bottom: 8px; }
+  .card p { color: var(--muted); font-size: 14.5px; }
+  .card.optional { opacity: .8; border-style: dashed; }
+  .tag { display: inline-block; font-size: 11px; text-transform: uppercase; letter-spacing: .12em;
+    color: var(--muted); background: #10151d; border: 1px solid #262e3a; border-radius: 999px;
+    padding: 3px 10px; margin-bottom: 10px; }
+
+  .diagram { width: 100%; margin: 10px 0 0; }
+  .diagram svg { width: 100%; height: auto; display: block; }
+
+  .steps { counter-reset: step; margin-top: 10px; }
+  .step { display: grid; grid-template-columns: 44px 1fr; gap: 18px; padding: 22px 0;
+    border-top: 1px solid #1c222c; }
+  .step:first-child { border-top: none; }
+  .step .num {
+    counter-increment: step; width: 44px; height: 44px; border-radius: 50%;
+    background: var(--bg-accent); border: 1px solid #2a3340; color: var(--accent-2);
+    display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 17px;
+  }
+  .step .num::before { content: counter(step); }
+  .step h3 { font-size: 17px; margin-bottom: 6px; }
+  .step p { color: var(--muted); font-size: 15px; }
+
+  .checklist { display: grid; gap: 14px; margin-top: 10px; }
+  .check {
+    display: grid; grid-template-columns: 22px 1fr; gap: 14px;
+    background: var(--bg-accent); border: 1px solid #262e3a; border-radius: 10px;
+    padding: 16px 18px;
+  }
+  .check .mark { color: var(--accent-2); font-size: 18px; line-height: 1.4; }
+  .check h3 { font-size: 15.5px; margin-bottom: 4px; }
+  .check p { color: var(--muted); font-size: 14px; }
+
+  .toggle-demo {
+    display: flex; align-items: center; gap: 14px; background: var(--bg-accent);
+    border: 1px solid #262e3a; border-radius: 10px; padding: 16px 20px; margin-top: 16px;
+  }
+  .toggle-demo .sw {
+    width: 40px; height: 22px; border-radius: 999px; background: #2a3340; position: relative; flex: none;
+  }
+  .toggle-demo .sw::after {
+    content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px;
+    border-radius: 50%; background: var(--muted);
+  }
+  .toggle-demo span { font-size: 14.5px; color: var(--muted); }
+  .toggle-demo strong { color: var(--fg); }
+
+  footer { padding: 8vh 0 10vh; text-align: center; color: var(--muted); font-size: 14px; }
+  footer a { color: var(--accent-2); }
+
+  .badge-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+  .badge { font-size: 13px; color: var(--muted); background: var(--bg-accent);
+    border: 1px solid #262e3a; border-radius: 999px; padding: 6px 12px; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="kicker">Self-hosted · Open source · MIT</div>
+    <h1>Build a <span class="hl">Second Brain</span><br>with Obsidian &amp; localAI</h1>
+    <p class="byline">Created by <strong>Leonardo Rincón</strong> — Founder, SolidAI.
+      Built for the talk at Inspire9, Melbourne.</p>
+    <div class="hero-links">
+      <a class="btn primary" href="https://github.com/Lyhack27/second-brain-stack">View on GitHub</a>
+      <a class="btn ghost" href="#quick-start">Jump to setup ↓</a>
+    </div>
+  </div>
+</header>
+
+<section id="what">
+  <div class="wrap">
+    <div class="kicker">What you get</div>
+    <h2>Two things that matter. <span class="hl">One that's optional.</span></h2>
+    <p class="lede">A small self-hosted stack: your notes synced to every device in
+      near-real-time, and an API your agents/scripts can write into. No third-party
+      cloud in the loop — notes are just Markdown files, forever.</p>
+    <div class="cards">
+      <div class="card">
+        <div class="icon">🔄</div>
+        <h3>Sync</h3>
+        <p>One CouchDB container + the Self-hosted LiveSync plugin. Phone note →
+          server → laptop, in seconds. This is the core of the stack.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🤖</div>
+        <h3>Webhook for agents</h3>
+        <p>A tiny endpoint any script or AI agent can POST to. It writes straight
+          into the vault — instantly synced, no filesystem access needed.</p>
+      </div>
+      <div class="card optional">
+        <div class="tag">Optional</div>
+        <div class="icon">🖥️</div>
+        <h3>Browser access</h3>
+        <p>Full desktop Obsidian streamed to any browser — for the odd time you
+          want graph view from a machine that isn't yours. Off by default.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="architecture">
+  <div class="wrap">
+    <div class="kicker">Architecture</div>
+    <h2>The whole thing fits in <span class="hl">one diagram</span></h2>
+    <p class="lede">Two containers run all the time. The third only runs when you
+      ask for it.</p>
+    <div class="diagram">
+      <svg viewBox="0 0 1000 380" xmlns="http://www.w3.org/2000/svg" font-family="inherit">
+        <defs>
+          <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="#9aa7b5"/>
+          </marker>
+        </defs>
+        <rect x="330" y="30" width="360" height="320" rx="16" fill="#151a22" stroke="#2a3340"/>
+        <text x="510" y="62" fill="#4ecdc4" font-size="18" text-anchor="middle" letter-spacing="3">YOUR SERVER</text>
+        <rect x="370" y="90" width="280" height="70" rx="10" fill="#1b212b" stroke="#7c6cf0"/>
+        <text x="510" y="120" fill="#e8ecf1" font-size="20" text-anchor="middle">CouchDB</text>
+        <text x="510" y="145" fill="#9aa7b5" font-size="14" text-anchor="middle">sync hub · always on</text>
+        <rect x="370" y="180" width="280" height="70" rx="10" fill="#1b212b" stroke="#4ecdc4"/>
+        <text x="510" y="210" fill="#e8ecf1" font-size="20" text-anchor="middle">Webhook</text>
+        <text x="510" y="235" fill="#9aa7b5" font-size="14" text-anchor="middle">POST /report · always on</text>
+        <rect x="370" y="270" width="280" height="60" rx="10" fill="#1b212b" stroke="#55606d" stroke-dasharray="7 5"/>
+        <text x="510" y="296" fill="#e8ecf1" font-size="18" text-anchor="middle">Obsidian in browser</text>
+        <text x="510" y="318" fill="#9aa7b5" font-size="13" text-anchor="middle">optional · off by default</text>
+        <rect x="30" y="105" width="200" height="60" rx="10" fill="#151a22" stroke="#2a3340"/>
+        <text x="130" y="141" fill="#e8ecf1" font-size="18" text-anchor="middle">📱 Phone</text>
+        <rect x="30" y="195" width="200" height="60" rx="10" fill="#151a22" stroke="#2a3340"/>
+        <text x="130" y="231" fill="#e8ecf1" font-size="18" text-anchor="middle">💻 Laptop / PC</text>
+        <rect x="770" y="150" width="200" height="60" rx="10" fill="#151a22" stroke="#2a3340"/>
+        <text x="870" y="186" fill="#e8ecf1" font-size="18" text-anchor="middle">🤖 Agent / script</text>
+        <line x1="230" y1="135" x2="365" y2="125" stroke="#9aa7b5" stroke-width="2" marker-end="url(#arr)" marker-start="url(#arr)"/>
+        <line x1="230" y1="225" x2="365" y2="135" stroke="#9aa7b5" stroke-width="2" marker-end="url(#arr)" marker-start="url(#arr)"/>
+        <line x1="765" y1="180" x2="655" y2="210" stroke="#9aa7b5" stroke-width="2" marker-end="url(#arr)"/>
+        <text x="130" y="90" fill="#9aa7b5" font-size="14" text-anchor="middle">LiveSync plugin</text>
+        <text x="870" y="130" fill="#9aa7b5" font-size="14" text-anchor="middle">curl / cron / AI agent</text>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<section id="quick-start">
+  <div class="wrap">
+    <div class="kicker">Setup · 5 minutes</div>
+    <h2>Get <span class="hl">sync</span> running</h2>
+    <p class="lede">This is all server-side — one `docker compose up`, then a
+      quick plugin install on each device.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="num"></div>
+        <div>
+          <h3>Clone and configure</h3>
+          <p>Copy <code>.env.example</code> to <code>.env</code> and fill in a real
+            <code>COUCHDB_PASSWORD</code>, <code>WEB_PASSWORD</code> and
+            <code>HOOK_TOKEN</code>.</p>
+          <pre><code>git clone https://github.com/Lyhack27/second-brain-stack
+<span class="c">cd</span> second-brain-stack
+cp .env.example .env</code></pre>
+        </div>
+      </div>
+      <div class="step">
+        <div class="num"></div>
+        <div>
+          <h3>Start the core</h3>
+          <p>Just the two always-on services — sync and the webhook.</p>
+          <pre><code>docker compose up -d couchdb hook</code></pre>
+        </div>
+      </div>
+      <div class="step">
+        <div class="num"></div>
+        <div>
+          <h3>Install the plugin on each device</h3>
+          <p>In Obsidian: install the community plugin <strong>Self-hosted LiveSync</strong>,
+            point it at <code>http://&lt;your-server&gt;:5984</code> (database
+            <code>obsidian</code>, same user/password as <code>.env</code>).</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="num"></div>
+        <div>
+          <h3>First device pushes, the rest fetch</h3>
+          <p>On the first device, let LiveSync push the vault. On every other
+            device, choose <em>"Fetch from remote"</em> when the plugin asks.</p>
+        </div>
+      </div>
+    </div>
+    <p class="lede" style="margin:26px 0 0">That's it — notes now sync in
+      near-real-time between every device, with CouchDB as the only
+      server-side moving part.</p>
+  </div>
+</section>
+
+<section id="webhook">
+  <div class="wrap">
+    <div class="kicker">The other half</div>
+    <h2>Let <span class="hl">agents write</span> into the vault</h2>
+    <p class="lede">Anything that can <code>curl</code> can add a note — no
+      filesystem access, no UI needed.</p>
+    <pre><code>curl -X POST http://&lt;your-server&gt;:8080/report \
+  -H <span class="y">"Authorization: Bearer $HOOK_TOKEN"</span> \
+  -H <span class="y">"Content-Type: application/json"</span> \
+  -d <span class="y">'{"agent":"claude","title":"Nightly audit",
+       "content":"Backups OK · SSL renews in 12 days"}'</span></code></pre>
+    <p class="lede" style="margin-top:18px">This appends to
+      <code>Team/&lt;agent&gt;/&lt;today&gt;.md</code>, writing a real
+      LiveSync-format document straight into CouchDB — every device gets it
+      instantly. Point a cron job, a CI step, or an AI agent at this and you
+      have automated reports living in your second brain.</p>
+  </div>
+</section>
+
+<section id="graph">
+  <div class="wrap">
+    <div class="kicker">Make it a real second brain</div>
+    <h2>Link notes into <span class="hl">a real graph</span></h2>
+    <p class="lede">Graph view is only interesting if notes actually link to
+      each other. Whenever you write about a topic, add a
+      <code>[[Link]]</code> to a hub note for that topic, and list the note
+      back on the hub. A few minutes of linking turns a pile of files into a
+      second brain.</p>
+    <div class="toggle-demo">
+      <div class="sw"></div>
+      <span><strong>Graph view → Filters → "Orphans"</strong> — turn it off
+        to hide every note with zero connections and see just what's
+        actually linked. Great for a live demo.</span>
+    </div>
+  </div>
+</section>
+
+<section id="optional">
+  <div class="wrap">
+    <div class="kicker">Optional</div>
+    <h2>Browser access, <span class="hl">when you need it</span></h2>
+    <p class="lede">A full desktop Obsidian streamed to your browser — for
+      plugin setup or editing from a machine that isn't yours. Sync and the
+      webhook never need this running.</p>
+    <pre><code>docker compose up -d obsidian   <span class="c"># turn on</span>
+docker compose stop obsidian    <span class="c"># turn off — sync never notices</span></code></pre>
+    <p class="lede" style="margin-top:14px">Costs ~1GB RAM only while running.
+      Log in at <code>http://&lt;your-server&gt;:3000</code>.</p>
+  </div>
+</section>
+
+<section id="gotchas">
+  <div class="wrap">
+    <div class="kicker">Scars, so you don't have to earn your own</div>
+    <h2>Gotchas <span class="hl">we hit</span></h2>
+    <div class="checklist">
+      <div class="check">
+        <div class="mark">⚠️</div>
+        <div><h3>Bytes ≠ string length</h3>
+          <p>LiveSync compares document sizes in UTF-8 bytes. Using JavaScript's
+            <code>.length</code> (UTF-16) makes notes with accents or emoji
+            look "corrupted" on other devices.</p></div>
+      </div>
+      <div class="check">
+        <div class="mark">⚠️</div>
+        <div><h3>Setup wizards flip your flags</h3>
+          <p>The LiveSync plugin's setup dialogs can silently disable
+            <code>syncOnStart</code>. Check the plugin's own settings if sync
+            stops being automatic.</p></div>
+      </div>
+      <div class="check">
+        <div class="mark">⚠️</div>
+        <div><h3>CouchDB doc IDs need real percent-encoding</h3>
+          <p>Querying CouchDB directly for a note in a subfolder? Encode the
+            <code>/</code> in the doc ID as <code>%2F</code> — a literal slash
+            gets parsed as a URL path separator, giving false "not found" errors.</p></div>
+      </div>
+      <div class="check">
+        <div class="mark">⚠️</div>
+        <div><h3>The webhook is the reliable path for automation</h3>
+          <p>It writes straight to CouchDB — instant sync regardless of
+            anything else running. A file dropped onto the vault folder on
+            disk only syncs once the optional browser container happens to
+            be open to notice it.</p></div>
+      </div>
+      <div class="check">
+        <div class="mark">⚠️</div>
+        <div><h3>Stale reverse-proxy configs haunt you</h3>
+          <p>If you experiment with domains/routing, clean up unused
+            Traefik/Caddy config — a forgotten rule claiming your domain shows
+            up as random 502s weeks later.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>MIT licensed. Fork it, swap the placeholders in <code>.env.example</code>,
+      make it yours.</p>
+    <div class="badge-row" style="justify-content:center">
+      <span class="badge">Docker Compose</span>
+      <span class="badge">CouchDB</span>
+      <span class="badge">Self-hosted LiveSync</span>
+      <span class="badge">Bun</span>
+    </div>
+    <p style="margin-top:22px">
+      <a href="https://github.com/Lyhack27/second-brain-stack">github.com/Lyhack27/second-brain-stack</a>
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>
