@@ -123,6 +123,26 @@
   .badge-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
   .badge { font-size: 13px; color: var(--muted); background: var(--bg-accent);
     border: 1px solid #262e3a; border-radius: 999px; padding: 6px 12px; }
+
+  .prompts { display: grid; gap: 20px; margin-top: 10px; }
+  .prompt-card {
+    background: var(--bg-accent); border: 1px solid #262e3a; border-radius: 12px;
+    overflow: hidden;
+  }
+  .prompt-card .ph {
+    display: flex; align-items: center; gap: 10px; padding: 14px 20px;
+    border-bottom: 1px solid #262e3a; background: #10151d;
+  }
+  .prompt-card .ph .who {
+    width: 26px; height: 26px; border-radius: 50%; background: var(--accent);
+    display: flex; align-items: center; justify-content: center; font-size: 13px; flex: none;
+  }
+  .prompt-card .ph strong { font-size: 15px; }
+  .prompt-card .ph p { color: var(--muted); font-size: 13.5px; margin-top: 2px; }
+  .prompt-card blockquote {
+    margin: 0; padding: 20px 22px; font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 14.5px; line-height: 1.7; color: #cdd6e0; white-space: pre-wrap;
+  }
 </style>
 </head>
 <body>
@@ -279,6 +299,45 @@ cp .env.example .env</code></pre>
       LiveSync-format document straight into CouchDB — every device gets it
       instantly. Point a cron job, a CI step, or an AI agent at this and you
       have automated reports living in your second brain.</p>
+  </div>
+</section>
+
+<section id="prompts">
+  <div class="wrap">
+    <div class="kicker">Don't write the code — ask an agent</div>
+    <h2>Prompts you can <span class="hl">copy and paste</span></h2>
+    <p class="lede">You don't need to touch Docker or bash yourself. Give
+      one of these to a coding agent (Claude Code, or whatever you use) and
+      let it do the work.</p>
+
+    <div class="prompts">
+      <div class="prompt-card">
+        <div class="ph">
+          <div class="who">1</div>
+          <div><strong>Clone the repo and set it up</strong>
+            <p>For someone who's never touched this stack before</p></div>
+        </div>
+        <blockquote>Clone https://github.com/Lyhack27/second-brain-stack onto this server, read the README, and set up the stack for me: copy .env.example to .env with strong random values for the password and token, then start the couchdb and hook services with docker compose. Tell me the exact URL, database name, and credentials I need to enter into the Self-hosted LiveSync plugin in Obsidian.</blockquote>
+      </div>
+
+      <div class="prompt-card">
+        <div class="ph">
+          <div class="who">2</div>
+          <div><strong>Add a cron report to the vault</strong>
+            <p>Turns a routine check into a note that shows up on every device</p></div>
+        </div>
+        <blockquote>Write a cron job that runs every night on this server and checks whether last night's backup succeeded. Have it POST the result to my Second Brain webhook at http://localhost:8080/report — Authorization: Bearer $HOOK_TOKEN, body {"agent":"backup","title":"Nightly backup","content":"..."} — with a short summary as the content. Install the cron job and run it once now so I can see the note appear in Obsidian.</blockquote>
+      </div>
+
+      <div class="prompt-card">
+        <div class="ph">
+          <div class="who">3</div>
+          <div><strong>Give an agent a standing habit</strong>
+            <p>For an agent you already talk to regularly (Telegram bot, CLI, etc.)</p></div>
+        </div>
+        <blockquote>From now on, whenever you finish a task for me on this server, POST a short summary to http://localhost:8080/report — Authorization: Bearer $HOOK_TOKEN, body {"agent":"&lt;your name&gt;","title":"...","content":"..."} — so I can see what you did from any device, even with my laptop closed.</blockquote>
+      </div>
+    </div>
   </div>
 </section>
 
