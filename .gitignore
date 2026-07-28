@@ -1,0 +1,5 @@
+.env
+couchdb/data/
+config/
+vault/
+*.log

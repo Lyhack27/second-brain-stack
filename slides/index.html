@@ -1,0 +1,481 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Build a Second Brain with Obsidian &amp; localAI</title>
+<style>
+  :root {
+    --bg: #0e1116;
+    --bg-accent: #151a22;
+    --fg: #e8ecf1;
+    --muted: #9aa7b5;
+    --accent: #7c6cf0;
+    --accent-2: #4ecdc4;
+    --code-bg: #1b212b;
+    --maxw: 1100px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--fg);
+    font-family: "Avenir Next", "Segoe UI", system-ui, -apple-system, sans-serif; }
+  .deck { height: 100%; position: relative; }
+  .slide {
+    position: absolute; inset: 0; display: none;
+    padding: 6vh 7vw; flex-direction: column; justify-content: center;
+  }
+  .slide.active { display: flex; animation: fadein .35s ease; }
+  @keyframes fadein { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .slide > * { max-width: var(--maxw); }
+  h1 { font-size: 7.2vmin; line-height: 1.12; letter-spacing: -.01em; }
+  h2 { font-size: 5.4vmin; line-height: 1.15; margin-bottom: 4.5vh; letter-spacing: -.01em; }
+  h1 .hl, h2 .hl { color: var(--accent); }
+  .kicker { color: var(--accent-2); text-transform: uppercase; letter-spacing: .22em;
+    font-size: 1.9vmin; font-weight: 600; margin-bottom: 2.2vh; }
+  p, li { font-size: 3.1vmin; line-height: 1.5; color: var(--fg); }
+  .muted { color: var(--muted); }
+  ul { list-style: none; }
+  ul li { padding-left: 3.4vmin; position: relative; margin-bottom: 2.2vh; }
+  ul li::before { content: "▸"; color: var(--accent); position: absolute; left: 0; }
+  ul li ul { margin-top: 1.4vh; }
+  ul li ul li { font-size: 2.6vmin; color: var(--muted); margin-bottom: .8vh; }
+  ul li ul li::before { content: "–"; color: var(--accent-2); }
+  code { font-family: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+    background: var(--code-bg); border-radius: .5vmin; padding: .3vmin 1vmin;
+    font-size: .92em; color: var(--accent-2); }
+  pre { background: var(--code-bg); border: 1px solid #262e3a; border-radius: 1.2vmin;
+    padding: 2.4vmin 3vmin; overflow-x: auto; margin-top: 2vh; }
+  pre code { background: none; padding: 0; font-size: 2.4vmin; line-height: 1.55; color: #cdd6e0; }
+  pre code .c { color: #5c6a7a; } pre code .g { color: var(--accent-2); } pre code .y { color: #e5c07b; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 4vw; align-items: start; width: 100%; max-width: var(--maxw); }
+  .titleslide { align-items: flex-start; background:
+    radial-gradient(ellipse at 80% 10%, #1d1747 0%, transparent 55%),
+    radial-gradient(ellipse at 10% 90%, #0d3330 0%, transparent 50%), var(--bg); }
+  .titleslide .who { margin-top: 5vh; font-size: 2.8vmin; color: var(--muted); }
+  .titleslide .who strong { color: var(--fg); }
+  .diagram { width: 100%; max-width: var(--maxw); margin-top: 1vh; }
+  .diagram svg { width: 100%; height: auto; display: block; }
+  .big { font-size: 4.6vmin; line-height: 1.35; font-weight: 500; }
+  .big .hl { color: var(--accent); } .big .hl2 { color: var(--accent-2); }
+  .foot { position: fixed; bottom: 2.2vh; left: 0; right: 0; display: flex;
+    justify-content: space-between; padding: 0 7vw; font-size: 1.8vmin; color: #55606d;
+    pointer-events: none; z-index: 2; }
+  .progress { position: fixed; top: 0; left: 0; height: .6vh; background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    width: 0; transition: width .25s ease; z-index: 3; }
+  .tag { display: inline-block; background: var(--bg-accent); border: 1px solid #2a3340;
+    border-radius: 999px; padding: .8vmin 2.4vmin; margin: 0 1.2vmin 1.4vh 0; font-size: 2.3vmin; color: var(--muted); }
+  .notecard { background: var(--code-bg); border: 1px solid #262e3a; border-radius: 1.2vmin; overflow: hidden; align-self: start; }
+  .notecard-bar { display: flex; align-items: center; gap: .8vmin; padding: 1.4vmin 2vmin; background: var(--bg-accent); border-bottom: 1px solid #262e3a; }
+  .notecard-bar .dot { width: 1.1vmin; height: 1.1vmin; border-radius: 50%; display: inline-block; }
+  .notecard-bar .d1 { background: #ff5f56; } .notecard-bar .d2 { background: #ffbd2e; } .notecard-bar .d3 { background: #27c93f; }
+  .notecard-name { margin-left: 1vmin; font-size: 1.7vmin; color: var(--muted); font-family: "JetBrains Mono", monospace; }
+  .notecard-body { margin: 0; border: none; border-radius: 0; background: none; padding: 2.6vmin 3vmin; }
+  .notecard-body code { font-size: 2.1vmin; }
+  @media (max-aspect-ratio: 1/1) { .cols { grid-template-columns: 1fr; gap: 2vh; } }
+
+  /* Typewriter demo: typing markdown, then saving into a notes list */
+  .notecard-status { margin-left: auto; position: relative; min-width: 15vmin; height: 2vmin; font-size: 1.6vmin; color: var(--muted); text-align: right; }
+  .notecard-status span { position: absolute; right: 0; top: 0; white-space: nowrap; }
+  .ns-dot { display: inline-block; color: var(--accent-2); animation: ns-blink 1s steps(1) infinite; }
+  .ns-writing { animation: ns-writing-anim 13s infinite; }
+  .ns-saved { color: var(--accent-2); animation: ns-saved-anim 13s infinite; }
+  @keyframes ns-blink { 50% { opacity: .15; } }
+  @keyframes ns-writing-anim { 0%,66% { opacity: 1; } 68%,100% { opacity: 0; } }
+  @keyframes ns-saved-anim { 0%,66% { opacity: 0; } 68%,88% { opacity: 1; } 90%,100% { opacity: 0; } }
+  .notecard-body .cl { display: block; }
+  .notecard-body .cl-empty { display: block; height: 1.6em; }
+  .notecard-body .cl-inner { display: inline-block; width: max-content; max-width: 100%; white-space: nowrap;
+    font-family: "JetBrains Mono", "Fira Code", ui-monospace, monospace; font-size: 2.1vmin; line-height: 1.6; color: #cdd6e0; }
+  .cl1, .cl3, .cl4, .cl5, .cl7 { clip-path: inset(0 100% 0 0); }
+  .cl1 { animation: type-tl1 13s infinite; }
+  .cl3 { animation: type-tl3 13s infinite; }
+  .cl4 { animation: type-tl4 13s infinite; }
+  .cl5 { animation: type-tl5 13s infinite; }
+  .cl7 { animation: type-tl7 13s infinite; }
+  @keyframes type-tl1 { 0% { clip-path: inset(0 100% 0 0); } 7%,90% { clip-path: inset(0 0 0 0); } 96%,100% { clip-path: inset(0 100% 0 0); } }
+  @keyframes type-tl3 { 0%,9% { clip-path: inset(0 100% 0 0); } 21%,90% { clip-path: inset(0 0 0 0); } 96%,100% { clip-path: inset(0 100% 0 0); } }
+  @keyframes type-tl4 { 0%,23% { clip-path: inset(0 100% 0 0); } 35%,90% { clip-path: inset(0 0 0 0); } 96%,100% { clip-path: inset(0 100% 0 0); } }
+  @keyframes type-tl5 { 0%,37% { clip-path: inset(0 100% 0 0); } 50%,90% { clip-path: inset(0 0 0 0); } 96%,100% { clip-path: inset(0 100% 0 0); } }
+  @keyframes type-tl7 { 0%,52% { clip-path: inset(0 100% 0 0); } 65%,90% { clip-path: inset(0 0 0 0); } 96%,100% { clip-path: inset(0 100% 0 0); } }
+  .noteslist { margin-top: 1.6vmin; background: var(--bg-accent); border: 1px solid #2a3340; border-radius: 1vmin; padding: 1.2vmin 1.8vmin; }
+  .nl-item { font-size: 1.8vmin; color: var(--muted); padding: .6vmin .8vmin; font-family: "JetBrains Mono", ui-monospace, monospace; border-radius: .6vmin; }
+  .nl-new { color: var(--fg); opacity: 0; transform: translateY(-4px); animation: nl-new-anim 13s infinite; }
+  @keyframes nl-new-anim {
+    0%,67% { opacity: 0; transform: translateY(-4px); background: transparent; }
+    70% { opacity: 1; transform: translateY(0); background: rgba(124,108,240,.28); }
+    78% { background: rgba(124,108,240,.28); }
+    84%,90% { opacity: 1; background: transparent; }
+    96%,100% { opacity: 0; transform: translateY(-4px); }
+  }
+
+  /* Graph-view animation: a "marketing" note lights up every linked node */
+  .net-lines line { animation-duration: 14s; animation-iteration-count: infinite; animation-timing-function: linear; }
+  .net-l-note { animation-name: dl-note; }
+  .net-l-campaign2 { animation-name: dl-campaign2; }
+  .net-l-channels { animation-name: dl-channels; }
+  .net-l-social { animation-name: dl-social; }
+  .net-l-content { animation-name: dl-content; }
+  .net-l-budget { animation-name: dl-budget; }
+  .net-l-cc { animation-name: dl-cc; }
+  .net-l-cb { animation-name: dl-cb; }
+  .net-l-hr { animation-name: dl-hr; }
+  .net-l-qt { animation-name: dl-qt; }
+  .net-l-br1 { animation-name: dl-br1; }
+  .net-l-br2 { animation-name: dl-br2; }
+  .net-l-br3 { animation-name: dl-br3; }
+  .net-l-br4 { animation-name: dl-br4; }
+  @keyframes dl-note { 0%,3% { stroke-dashoffset: 199; } 9%,90% { stroke-dashoffset: 0; } 97%,100% { stroke-dashoffset: 199; } }
+  @keyframes dl-campaign2 { 0%,12% { stroke-dashoffset: 177; } 18%,90% { stroke-dashoffset: 0; } 97%,100% { stroke-dashoffset: 177; } }
+  @keyframes dl-channels { 0%,21% { stroke-dashoffset: 166; } 27%,90% { stroke-dashoffset: 0; } 97%,100% { stroke-dashoffset: 166; } }
+  @keyframes dl-social { 0%,30% { stroke-dashoffset: 157; } 36%,90% { stroke-dashoffset: 0; } 97%,100% { stroke-dashoffset: 157; } }
+  @keyframes dl-content { 0%,39% { stroke-dashoffset: 172; } 45%,90% { stroke-dashoffset: 0; } 97%,100% { stroke-dashoffset: 172; } }
+  @keyframes dl-budget { 0%,48% { stroke-dashoffset: 178; } 54%,90% { stroke-dashoffset: 0; } 97%,100% { stroke-dashoffset: 178; } }
+  @keyframes dl-cc { 0%,57% { stroke-dashoffset: 138; } 62%,90% { stroke-dashoffset: 0; } 97%,100% { stroke-dashoffset: 138; } }
+  @keyframes dl-cb { 0%,57% { stroke-dashoffset: 133; } 62%,90% { stroke-dashoffset: 0; } 97%,100% { stroke-dashoffset: 133; } }
+  @keyframes dl-hr { 0%,65% { stroke-dashoffset: 180; } 72%,90% { stroke-dashoffset: 0; } 97%,100% { stroke-dashoffset: 180; } }
+  @keyframes dl-qt { 0%,65% { stroke-dashoffset: 163; } 72%,90% { stroke-dashoffset: 0; } 97%,100% { stroke-dashoffset: 163; } }
+  @keyframes dl-br1 { 0%,74% { stroke-dashoffset: 75; } 79%,90% { stroke-dashoffset: 0; } 97%,100% { stroke-dashoffset: 75; } }
+  @keyframes dl-br2 { 0%,74% { stroke-dashoffset: 105; } 79%,90% { stroke-dashoffset: 0; } 97%,100% { stroke-dashoffset: 105; } }
+  @keyframes dl-br3 { 0%,74% { stroke-dashoffset: 74; } 79%,90% { stroke-dashoffset: 0; } 97%,100% { stroke-dashoffset: 74; } }
+  @keyframes dl-br4 { 0%,74% { stroke-dashoffset: 81; } 79%,90% { stroke-dashoffset: 0; } 97%,100% { stroke-dashoffset: 81; } }
+  @keyframes hub-pulse { 0%,79% { filter: none; } 82% { filter: drop-shadow(0 0 7px #7c6cf0); } 90% { filter: none; } 100% { filter: none; } }
+  .hub-circle { animation: hub-pulse 14s infinite; }
+  .net-hub, .net-note, .net-campaign2, .net-channels, .net-social, .net-content, .net-budget, .net-bg {
+    animation-duration: 14s; animation-iteration-count: infinite; animation-timing-function: ease;
+  }
+  .net-hub { animation-name: na-hub; }
+  .net-note { animation-name: na-note; }
+  .net-campaign2 { animation-name: na-campaign2; }
+  .net-channels { animation-name: na-channels; }
+  .net-social { animation-name: na-social; }
+  .net-content { animation-name: na-content; }
+  .net-budget { animation-name: na-budget; }
+  .net-bg { animation-name: na-bg; }
+  @keyframes na-hub { 0% { opacity:0; } 1%,90% { opacity:1; } 97%,100% { opacity:0; } }
+  @keyframes na-note { 0%,9% { opacity:0; } 11%,90% { opacity:1; } 97%,100% { opacity:0; } }
+  @keyframes na-campaign2 { 0%,18% { opacity:0; } 20%,90% { opacity:1; } 97%,100% { opacity:0; } }
+  @keyframes na-channels { 0%,27% { opacity:0; } 29%,90% { opacity:1; } 97%,100% { opacity:0; } }
+  @keyframes na-social { 0%,36% { opacity:0; } 38%,90% { opacity:1; } 97%,100% { opacity:0; } }
+  @keyframes na-content { 0%,45% { opacity:0; } 47%,90% { opacity:1; } 97%,100% { opacity:0; } }
+  @keyframes na-budget { 0%,54% { opacity:0; } 56%,90% { opacity:1; } 97%,100% { opacity:0; } }
+  @keyframes na-bg { 0%,65% { opacity:0; } 72%,90% { opacity:1; } 97%,100% { opacity:0; } }
+</style>
+</head>
+<body>
+<div class="progress" id="progress"></div>
+<div class="deck" id="deck">
+
+  <section class="slide titleslide">
+    <div class="kicker">Inspire9 · Melbourne · 30 July 2026</div>
+    <h1>Build a <span class="hl">Second Brain</span><br>with Obsidian &amp; <span class="hl">localAI</span></h1>
+    <p class="who"><strong>Leonardo Rincón</strong> · Co-founder, SolidAI<br>
+    <span class="muted">Your notes, your server, your AI — nothing leaves your hands.</span></p>
+  </section>
+
+  <section class="slide">
+    <div class="kicker">What it is</div>
+    <h2>Obsidian is a <span class="hl">note-taking app</span><br>for your desktop and phone</h2>
+    <div class="cols">
+      <ul>
+        <li>You write notes as plain text (Markdown) files — no proprietary format</li>
+        <li>Everything lives in a folder on your own device, called a <em>vault</em></li>
+        <li><code>[[Links]]</code> between notes turn your vault into a network of ideas</li>
+        <li>Free to use, with plugins that add sync, publishing, and even AI</li>
+      </ul>
+      <div class="notedemo">
+        <div class="notecard">
+          <div class="notecard-bar">
+            <span class="dot d1"></span><span class="dot d2"></span><span class="dot d3"></span>
+            <span class="notecard-name">Second Brain.md</span>
+            <span class="notecard-status">
+              <span class="ns-writing"><span class="ns-dot">●</span> Writing…</span>
+              <span class="ns-saved">✓ Saved</span>
+            </span>
+          </div>
+          <div class="notecard-body">
+            <div class="cl"><span class="cl-inner cl1" style="color:#e5c07b"># Second Brain</span></div>
+            <div class="cl-empty"></div>
+            <div class="cl"><span class="cl-inner cl3">- Capture ideas in <span style="color:#4ecdc4">**Markdown**</span></span></div>
+            <div class="cl"><span class="cl-inner cl4">- Connect them: <span style="color:#4ecdc4">[[Zettelkasten]]</span></span></div>
+            <div class="cl"><span class="cl-inner cl5">- Tag what matters: <span style="color:#e5c07b">#idea #project</span></span></div>
+            <div class="cl-empty"></div>
+            <div class="cl"><span class="cl-inner cl7" style="color:#5c6a7a">&gt; Your notes. Your files. Your server.</span></div>
+          </div>
+        </div>
+        <div class="noteslist">
+          <div class="nl-item">📄 Daily note.md</div>
+          <div class="nl-item">📄 Ideas.md</div>
+          <div class="nl-item nl-new">📄 Second Brain.md</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="kicker">The foundation</div>
+    <h2>Why <span class="hl">Obsidian</span></h2>
+    <div class="cols">
+      <ul>
+        <li>Notes are <strong>plain Markdown files in a folder</strong> — no database, no lock-in</li>
+        <li>Local-first: works offline, on every platform, forever</li>
+        <li><code>[[Links]]</code> + graph view turn notes into a network, not a pile</li>
+        <li>Huge plugin ecosystem — the one that matters tonight: <strong>Self-hosted LiveSync</strong></li>
+      </ul>
+      <div class="diagram">
+        <svg viewBox="0 0 460 390" xmlns="http://www.w3.org/2000/svg">
+          <g class="net-lines" fill="none" stroke="#2a3340" stroke-width="1.6" stroke-linecap="round">
+            <line class="net-l-note" x1="85" y1="70" x2="240" y2="195" stroke-dasharray="199" stroke-dashoffset="199"/>
+            <line class="net-l-campaign2" x1="240" y1="195" x2="375" y2="80" stroke-dasharray="177" stroke-dashoffset="177"/>
+            <line class="net-l-channels" x1="240" y1="195" x2="405" y2="215" stroke-dasharray="166" stroke-dashoffset="166"/>
+            <line class="net-l-social" x1="240" y1="195" x2="320" y2="330" stroke-dasharray="157" stroke-dashoffset="157"/>
+            <line class="net-l-content" x1="240" y1="195" x2="140" y2="335" stroke-dasharray="172" stroke-dashoffset="172"/>
+            <line class="net-l-budget" x1="240" y1="195" x2="65" y2="225" stroke-dasharray="178" stroke-dashoffset="178"/>
+            <line class="net-l-cc" x1="375" y1="80" x2="405" y2="215" stroke-dasharray="138" stroke-dashoffset="138"/>
+            <line class="net-l-cb" x1="140" y1="335" x2="65" y2="225" stroke-dasharray="133" stroke-dashoffset="133"/>
+            <line class="net-l-hr" x1="410" y1="320" x2="420" y2="140" stroke-dasharray="180" stroke-dashoffset="180" stroke="#232b36"/>
+            <line class="net-l-qt" x1="35" y1="150" x2="150" y2="35" stroke-dasharray="163" stroke-dashoffset="163" stroke="#232b36"/>
+            <line class="net-l-br1" x1="420" y1="140" x2="375" y2="80" stroke-dasharray="75" stroke-dashoffset="75" stroke="#7c6cf0" stroke-width="1.6" opacity=".55"/>
+            <line class="net-l-br2" x1="410" y1="320" x2="405" y2="215" stroke-dasharray="105" stroke-dashoffset="105" stroke="#7c6cf0" stroke-width="1.6" opacity=".55"/>
+            <line class="net-l-br3" x1="150" y1="35" x2="85" y2="70" stroke-dasharray="74" stroke-dashoffset="74" stroke="#7c6cf0" stroke-width="1.6" opacity=".55"/>
+            <line class="net-l-br4" x1="35" y1="150" x2="65" y2="225" stroke-dasharray="81" stroke-dashoffset="81" stroke="#7c6cf0" stroke-width="1.6" opacity=".55"/>
+          </g>
+
+          <g class="net-hub">
+            <circle class="hub-circle" cx="240" cy="195" r="13" fill="#7c6cf0"/>
+            <text x="240" y="224" fill="#e8ecf1" font-size="14" font-weight="600" text-anchor="middle">marketing</text>
+          </g>
+
+          <g class="net-note">
+            <circle cx="85" cy="70" r="9" fill="#4ecdc4"/>
+            <text text-anchor="end" font-size="12" fill="#cdd6e0">
+              <tspan x="76" y="92">$2,000 AUD</tspan>
+              <tspan x="76" y="106">next month</tspan>
+            </text>
+          </g>
+
+          <g class="net-campaign2">
+            <circle cx="375" cy="80" r="7" fill="#4ecdc4"/>
+            <text text-anchor="start" font-size="12" fill="#cdd6e0">
+              <tspan x="386" y="76">Campaign 2</tspan>
+              <tspan x="386" y="90">— Marketing</tspan>
+            </text>
+          </g>
+
+          <g class="net-channels">
+            <circle cx="405" cy="215" r="7" fill="#4ecdc4"/>
+            <text text-anchor="start" font-size="12" fill="#cdd6e0">
+              <tspan x="416" y="211">Marketing</tspan>
+              <tspan x="416" y="225">Channels</tspan>
+            </text>
+          </g>
+
+          <g class="net-social">
+            <circle cx="320" cy="330" r="7" fill="#4ecdc4"/>
+            <text text-anchor="middle" font-size="12" fill="#cdd6e0">
+              <tspan x="320" y="352">Social Media</tspan>
+              <tspan x="320" y="366">Marketing</tspan>
+            </text>
+          </g>
+
+          <g class="net-content">
+            <circle cx="140" cy="335" r="7" fill="#4ecdc4"/>
+            <text text-anchor="middle" font-size="12" fill="#cdd6e0">
+              <tspan x="140" y="357">Content</tspan>
+              <tspan x="140" y="371">Marketing Plan</tspan>
+            </text>
+          </g>
+
+          <g class="net-budget">
+            <circle cx="65" cy="225" r="7" fill="#4ecdc4"/>
+            <text text-anchor="end" font-size="12" fill="#cdd6e0">
+              <tspan x="54" y="221">Marketing</tspan>
+              <tspan x="54" y="235">Budget</tspan>
+            </text>
+          </g>
+
+          <g class="net-bg">
+            <circle cx="410" cy="320" r="4" fill="#5c6a7a"/>
+            <text x="418" y="324" font-size="10" fill="#5c6a7a">Hiring</text>
+            <circle cx="420" cy="140" r="4" fill="#5c6a7a"/>
+            <text x="428" y="144" font-size="10" fill="#5c6a7a">Roadmap</text>
+            <circle cx="35" cy="150" r="4" fill="#5c6a7a"/>
+            <text x="27" y="154" font-size="10" fill="#5c6a7a" text-anchor="end">Q3 Goals</text>
+            <circle cx="150" cy="35" r="4" fill="#5c6a7a"/>
+            <text x="150" y="24" font-size="10" fill="#5c6a7a" text-anchor="middle">Team Notes</text>
+          </g>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="kicker">The problem</div>
+    <h2>One brain, <span class="hl">many devices</span></h2>
+    <ul>
+      <li>Phone on the tram, laptop at work, PC at home — the vault must be everywhere</li>
+      <li>Official Obsidian Sync is great… but your notes live on someone else's cloud</li>
+      <li>Our rule at SolidAI: <strong>the source of truth stays on hardware we control</strong></li>
+      <li>Answer: a $6/month VPS and two containers</li>
+    </ul>
+  </section>
+
+  <section class="slide">
+    <div class="kicker">Architecture</div>
+    <h2>The whole thing fits in <span class="hl">one diagram</span></h2>
+    <div class="diagram">
+      <svg viewBox="0 0 1000 430" xmlns="http://www.w3.org/2000/svg" font-family="inherit">
+        <defs>
+          <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="#9aa7b5"/>
+          </marker>
+        </defs>
+        <rect x="330" y="30" width="360" height="370" rx="16" fill="#151a22" stroke="#2a3340"/>
+        <text x="510" y="62" fill="#4ecdc4" font-size="20" text-anchor="middle" letter-spacing="3">VPS · DOCKER</text>
+        <rect x="370" y="90" width="280" height="70" rx="10" fill="#1b212b" stroke="#7c6cf0"/>
+        <text x="510" y="120" fill="#e8ecf1" font-size="22" text-anchor="middle">CouchDB</text>
+        <text x="510" y="146" fill="#9aa7b5" font-size="16" text-anchor="middle">sync hub · always on</text>
+        <rect x="370" y="180" width="280" height="70" rx="10" fill="#1b212b" stroke="#4ecdc4"/>
+        <text x="510" y="210" fill="#e8ecf1" font-size="22" text-anchor="middle">Webhook (Bun, ~30 MB)</text>
+        <text x="510" y="236" fill="#9aa7b5" font-size="16" text-anchor="middle">agents → daily notes · always on</text>
+        <rect x="370" y="270" width="280" height="70" rx="10" fill="#1b212b" stroke="#55606d" stroke-dasharray="7 5"/>
+        <text x="510" y="300" fill="#e8ecf1" font-size="22" text-anchor="middle">Obsidian Web UI</text>
+        <text x="510" y="326" fill="#9aa7b5" font-size="16" text-anchor="middle">on-demand switch · off by default</text>
+        <rect x="30" y="105" width="200" height="60" rx="10" fill="#151a22" stroke="#2a3340"/>
+        <text x="130" y="141" fill="#e8ecf1" font-size="20" text-anchor="middle">📱 Phone</text>
+        <rect x="30" y="195" width="200" height="60" rx="10" fill="#151a22" stroke="#2a3340"/>
+        <text x="130" y="231" fill="#e8ecf1" font-size="20" text-anchor="middle">💻 Laptop / PC</text>
+        <rect x="770" y="105" width="200" height="60" rx="10" fill="#151a22" stroke="#2a3340"/>
+        <text x="870" y="141" fill="#e8ecf1" font-size="20" text-anchor="middle">🤖 Claude Code</text>
+        <rect x="770" y="195" width="200" height="60" rx="10" fill="#151a22" stroke="#2a3340"/>
+        <text x="870" y="231" fill="#e8ecf1" font-size="20" text-anchor="middle">✈️ Telegram</text>
+        <line x1="230" y1="135" x2="365" y2="125" stroke="#9aa7b5" stroke-width="2" marker-end="url(#arr)" marker-start="url(#arr)"/>
+        <line x1="230" y1="225" x2="365" y2="135" stroke="#9aa7b5" stroke-width="2" marker-end="url(#arr)" marker-start="url(#arr)"/>
+        <line x1="765" y1="135" x2="655" y2="205" stroke="#9aa7b5" stroke-width="2" marker-end="url(#arr)"/>
+        <line x1="770" y1="225" x2="875" y2="170" stroke="#9aa7b5" stroke-width="2" marker-end="url(#arr)"/>
+        <text x="130" y="90" fill="#9aa7b5" font-size="16" text-anchor="middle">LiveSync plugin</text>
+        <text x="870" y="90" fill="#9aa7b5" font-size="16" text-anchor="middle">lives on the VPS</text>
+      </svg>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="kicker">Layer 1 · Sync</div>
+    <h2>CouchDB + <span class="hl">Self-hosted LiveSync</span></h2>
+    <ul>
+      <li>One CouchDB container behind HTTPS — that's the entire sync server</li>
+      <li>The LiveSync community plugin syncs every device in near-real-time</li>
+      <li>Phone note → CouchDB → server vault → laptop, in seconds</li>
+      <li>New device? Install plugin, point it at the URL, <em>Fetch from remote</em>. Done.</li>
+      <li>End-to-end encryption available if you want zero-trust hosting</li>
+    </ul>
+  </section>
+
+  <section class="slide">
+    <div class="kicker">Layer 2 · Access anywhere</div>
+    <h2>Obsidian in the browser — <span class="hl">as a switch</span></h2>
+    <p class="muted">Full desktop Obsidian (graph view included) streamed to any browser, running next to the data. Off by default; two words turn it on.</p>
+    <pre><code><span class="c"># "turn on obsidian" (I say it in Telegram, my agent runs it)</span>
+docker compose up -d obsidian   <span class="g"># → https://obsidian.██████.com</span>
+
+<span class="c"># "turn off obsidian" — sync never notices</span>
+docker compose stop obsidian</code></pre>
+    <p style="margin-top:2.5vh">Costs ~1 GB RAM <em>only while it runs</em>. CouchDB and the webhook never blink.</p>
+  </section>
+
+  <section class="slide">
+    <div class="kicker">Layer 3 · localAI</div>
+    <h2>An AI that <span class="hl">lives with your brain</span></h2>
+    <ul>
+      <li>Claude Code runs <em>on the VPS</em>, right next to the vault</li>
+      <li>I talk to it from Telegram — it manages the whole stack for me
+        <ul><li>"turn on obsidian" · "check the backups" · "what did the team report today?"</li></ul>
+      </li>
+      <li>It keeps its own persistent memory in Markdown too — agents need second brains as well</li>
+      <li>The key piece: agents don't just <em>read</em> the vault. They <strong>write</strong> to it.</li>
+    </ul>
+  </section>
+
+  <section class="slide">
+    <div class="kicker">The magic trick</div>
+    <h2>Agents <span class="hl">write into the vault</span> via webhook</h2>
+    <pre><code>curl -X POST https://sync.██████.com/hook/report \
+  -H <span class="y">"Authorization: Bearer $TOKEN"</span> \
+  -d <span class="y">'{"agente":"claude","titulo":"Nightly audit",
+       "contenido":"Backups ✅ · SSL renews in 12 days"}'</span></code></pre>
+    <ul style="margin-top:3vh">
+      <li>A ~30 MB Bun service appends to per-agent daily notes: <code>Equipo/&lt;agent&gt;/2026-07-30.md</code></li>
+      <li>It writes LiveSync-format documents straight into CouchDB…</li>
+      <li>…so every device gets the note <strong>instantly</strong>, even with the UI off</li>
+      <li>Cron jobs report health checks, backups and security scans into the vault every night</li>
+    </ul>
+  </section>
+
+  <section class="slide">
+    <div class="kicker">What it feels like</div>
+    <p class="big">Capture on the tram. 📱<br>
+    Think on the laptop. 💻<br>
+    While <span class="hl">agents file their reports</span><br>
+    into the same brain — <span class="hl2">while you sleep</span>. 😴</p>
+  </section>
+
+  <section class="slide">
+    <div class="kicker">Scars · learn from ours</div>
+    <h2>Gotchas we hit <span class="hl">so you don't have to</span></h2>
+    <ul>
+      <li><strong>Bytes ≠ string length.</strong> LiveSync doc sizes are UTF-8 bytes; using JS <code>.length</code> made notes with emojis show as "corrupted" on devices</li>
+      <li><strong>Setup wizards flip your flags.</strong> The plugin's dialogs silently disabled <code>syncOnStart</code> — edit its config only while the container is stopped</li>
+      <li><strong>Stale proxy configs haunt you.</strong> An old Traefik file claimed our domain and served 502s — clean up after experiments</li>
+      <li><strong>Programmatic writes go through CouchDB</strong>, not the filesystem — files dropped in the vault folder only sync while the UI runs</li>
+    </ul>
+  </section>
+
+  <section class="slide">
+    <div class="kicker">Recipe</div>
+    <h2>Build yours <span class="hl">this weekend</span></h2>
+    <ul>
+      <li><span class="tag">1</span> Any small VPS + Docker + a domain</li>
+      <li><span class="tag">2</span> CouchDB container behind Traefik/Caddy with HTTPS</li>
+      <li><span class="tag">3</span> Obsidian + Self-hosted LiveSync on every device</li>
+      <li><span class="tag">4</span> Optional: linuxserver/obsidian for browser access, off by default</li>
+      <li><span class="tag">5</span> Optional: a tiny webhook so your AI/automations can write to the vault</li>
+      <li><span class="tag">6</span> Point a local agent (Claude Code, etc.) at the server and give it memory</li>
+    </ul>
+  </section>
+
+  <section class="slide titleslide">
+    <div class="kicker">Thanks!</div>
+    <h1>Own your <span class="hl">second brain</span>.<br>Then give it <span class="hl">hands</span>.</h1>
+    <p class="who"><strong>Leonardo Rincón</strong> · SolidAI<br>
+    <span class="muted">Questions → let's talk. Slides: presentation.racielinsulation.com</span></p>
+  </section>
+
+</div>
+<div class="foot"><span>Build a Second Brain with Obsidian &amp; localAI</span><span id="counter"></span></div>
+<script>
+  const slides = [...document.querySelectorAll(".slide")];
+  let i = Math.max(0, Math.min(slides.length - 1, (parseInt(location.hash.slice(1), 10) || 1) - 1));
+  function show(n) {
+    i = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach((s, k) => s.classList.toggle("active", k === i));
+    document.getElementById("counter").textContent = (i + 1) + " / " + slides.length;
+    document.getElementById("progress").style.width = ((i + 1) / slides.length * 100) + "%";
+    history.replaceState(null, "", "#" + (i + 1));
+  }
+  addEventListener("keydown", e => {
+    if (["ArrowRight", "ArrowDown", "PageDown", " "].includes(e.key)) { e.preventDefault(); show(i + 1); }
+    else if (["ArrowLeft", "ArrowUp", "PageUp"].includes(e.key)) { e.preventDefault(); show(i - 1); }
+    else if (e.key === "Home") show(0);
+    else if (e.key === "End") show(slides.length - 1);
+  });
+  let tx = null;
+  addEventListener("touchstart", e => tx = e.touches[0].clientX);
+  addEventListener("touchend", e => {
+    if (tx === null) return;
+    const dx = e.changedTouches[0].clientX - tx;
+    if (Math.abs(dx) > 40) show(i + (dx < 0 ? 1 : -1));
+    tx = null;
+  });
+  addEventListener("click", e => { if (!window.getSelection().toString()) show(i + 1); });
+  show(i);
+</script>
+</body>
+</html>

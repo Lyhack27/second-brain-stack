@@ -1,0 +1,106 @@
+# Second Brain stack: one Obsidian vault, synced to every device, with an
+# API agents can write into.
+#
+# - couchdb: always on — sync hub for the Self-hosted LiveSync plugin (native apps)
+# - hook:    always on — tiny webhook so agents/scripts can write notes directly
+# - obsidian: OFF by default — full desktop Obsidian streamed to a browser,
+#             turn it on only when you need graph view / plugin config in-browser
+#
+# Quick start:
+#   cp .env.example .env   # edit the values
+#   docker compose up -d couchdb hook
+#   # install "Self-hosted LiveSync" in Obsidian on your devices, point it at
+#   # http://<this-host>:5984 (or your domain, see the Traefik section below)
+#
+# Turn the browser UI on/off on demand:
+#   docker compose up -d obsidian
+#   docker compose stop obsidian
+
+services:
+  couchdb:
+    image: couchdb:3
+    container_name: second-brain-couchdb
+    restart: unless-stopped
+    environment:
+      - COUCHDB_USER=${COUCHDB_USER}
+      - COUCHDB_PASSWORD=${COUCHDB_PASSWORD}
+    volumes:
+      - ./couchdb/data:/opt/couchdb/data
+      - ./couchdb/local.d:/opt/couchdb/etc/local.d
+    ports:
+      - "5984:5984"
+    # --- Traefik / reverse proxy (optional) ---
+    # If you run Traefik (e.g. via Coolify) instead of exposing the port
+    # directly, remove the `ports:` line above, attach this service to your
+    # proxy's network, and uncomment:
+    # networks:
+    #   - proxy
+    # labels:
+    #   - traefik.enable=true
+    #   - traefik.http.routers.sb-sync.rule=Host(`sync.yourdomain.com`)
+    #   - traefik.http.routers.sb-sync.entryPoints=https
+    #   - traefik.http.routers.sb-sync.tls=true
+    #   - traefik.http.routers.sb-sync.tls.certresolver=letsencrypt
+    #   - traefik.http.services.sb-sync.loadbalancer.server.port=5984
+
+  hook:
+    image: oven/bun:1-alpine
+    container_name: second-brain-hook
+    restart: unless-stopped
+    command: ["bun", "run", "/app/server.ts"]
+    environment:
+      - COUCH_URL=http://couchdb:5984
+      - COUCH_DB=obsidian
+      - COUCH_USER=${COUCHDB_USER}
+      - COUCH_PASSWORD=${COUCHDB_PASSWORD}
+      - HOOK_TOKEN=${HOOK_TOKEN}
+      - TZ=${TZ}
+    volumes:
+      - ./hook:/app:ro
+    ports:
+      - "8080:8080"
+    # --- Traefik / reverse proxy (optional) ---
+    # networks:
+    #   - proxy
+    # labels:
+    #   - traefik.enable=true
+    #   - traefik.http.routers.sb-hook.rule=Host(`sync.yourdomain.com`) && PathPrefix(`/hook`)
+    #   - traefik.http.routers.sb-hook.entryPoints=https
+    #   - traefik.http.routers.sb-hook.tls=true
+    #   - traefik.http.routers.sb-hook.tls.certresolver=letsencrypt
+    #   - traefik.http.routers.sb-hook.middlewares=sb-hook-strip
+    #   - traefik.http.middlewares.sb-hook-strip.stripprefix.prefixes=/hook
+    #   - traefik.http.services.sb-hook.loadbalancer.server.port=8080
+
+  obsidian:
+    image: lscr.io/linuxserver/obsidian:latest
+    container_name: second-brain-obsidian-web
+    restart: "no"          # started on demand, not with the rest of the stack
+    shm_size: "1gb"
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TZ}
+      - CUSTOM_USER=${WEB_USER}
+      - PASSWORD=${WEB_PASSWORD}
+    volumes:
+      - ./config:/config
+      - ./vault:/vault
+    ports:
+      - "3000:3000"
+    # --- Traefik / reverse proxy (optional) ---
+    # networks:
+    #   - proxy
+    # labels:
+    #   - traefik.enable=true
+    #   - traefik.http.routers.sb-web.rule=Host(`obsidian.yourdomain.com`)
+    #   - traefik.http.routers.sb-web.entryPoints=https
+    #   - traefik.http.routers.sb-web.tls=true
+    #   - traefik.http.routers.sb-web.tls.certresolver=letsencrypt
+    #   - traefik.http.services.sb-web.loadbalancer.server.port=3000
+
+# Uncomment if you attach services to an existing reverse-proxy network
+# (see the commented `networks:` blocks above):
+# networks:
+#   proxy:
+#     external: true
